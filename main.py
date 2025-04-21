@@ -112,6 +112,9 @@ class SearchRequest(BaseModel):
     # Optional: Include chat_history if your agent/prompt uses it
     chat_history: List[Dict[str, str]] = [] # Example: [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]
 
+class SearchResponse(BaseModel):  # Define SearchResponse here
+    result: str
+    
 # Helper to format chat history for LangChain if needed
 def format_chat_history(history: List[Dict[str, str]]) -> List:
     lc_history = []
