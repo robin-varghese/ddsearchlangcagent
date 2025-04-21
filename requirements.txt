@@ -5,6 +5,7 @@ langchain
 duckduckgo-search
 python-dotenv
 google-generativeai
+google-cloud-secret-manager
 langchain-community
 langchain-google-genai
 

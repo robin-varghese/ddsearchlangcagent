@@ -14,15 +14,34 @@ from langchain_core.utils.function_calling import convert_to_openai_function
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-load_dotenv()
+import os
+from fastapi import FastAPI
+from google.cloud import secretmanager
 
-# Load the Google API key
-logging.info("Loading Google API Key from environment variables")
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+# ... other imports ...
 
-if not GOOGLE_API_KEY:
-    logging.error("GOOGLE_API_KEY not found in environment variables")
-    raise ValueError("GOOGLE_API_KEY not found in environment variables")
+app = FastAPI()
+
+def access_secret_version(secret_id, version_id="latest"):
+    """Access the secret version."""
+    client = secretmanager.SecretManagerServiceClient()
+    name = f"projects/{os.environ.get('GOOGLE_CLOUD_PROJECT')}/secrets/{secret_id}/versions/{version_id}"
+    response = client.access_secret_version(request={"name": name})
+    return response.payload.data.decode("UTF-8")
+
+# Get the API key from Secret Manager
+try:
+    os.environ["GOOGLE_CLOUD_PROJECT"]
+except KeyError:
+    raise ValueError("GOOGLE_CLOUD_PROJECT environment variable must be set.")
+
+google_api_key = access_secret_version("google-api-key")
+
+if not google_api_key:
+    raise ValueError("Failed to retrieve GOOGLE_API_KEY from Secret Manager")
+
+# ... Initialize your LangChain agent using google_api_key ...
+
 
 logging.info("Configuring Google Generative AI with the provided API Key")
 genai.configure(api_key=GOOGLE_API_KEY)
