@@ -1,0 +1,94 @@
+ignore
+# Bytecode / optimization
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.DS_Store
+build/
+dist/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.env
+/.idx/
+node_modules/
+
+# Installer logs
+pip-log.txt
+pip-wheel-metadata/
+pip-manifest.txt
+pip-*.log
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+coverage.*
+*.cover
+.trunk/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx stuff:
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+ipython_config.py
+
+# pyc files
+*.pyc
+
+# Compiled extensions
+*.so
+*.o
+*.obj
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# MyPy
+.mypy_cache/
+
+# Rust
+target/
+
+# NodeJS
+node_modules/
+package-lock.json
+
+# YARN
+yarn-error.log
+
+# System files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+langchain
+duckduckgo-search
+python-dotenv
+google-generativeai
+
+
+
