@@ -31,11 +31,11 @@ def access_secret_version(secret_id, version_id="latest"):
 
 # Get the API key from Secret Manager
 try:
-    os.environ["GOOGLE_CLOUD_PROJECT"]
+    os.environ.get('GOOGLE_CLOUD_PROJECT')
 except KeyError:
     raise ValueError("GOOGLE_CLOUD_PROJECT environment variable must be set.")
 
-google_api_key = access_secret_version("google-api-key")
+GOOGLE_API_KEY = access_secret_version("google-api-key")
 
 if not google_api_key:
     raise ValueError("Failed to retrieve GOOGLE_API_KEY from Secret Manager")
