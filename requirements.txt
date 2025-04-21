@@ -1,9 +1,12 @@
 fastapi
+gunicorn
 uvicorn
 langchain
 duckduckgo-search
 python-dotenv
 google-generativeai
+langchain-community
+langchain-google-genai
 
 
 

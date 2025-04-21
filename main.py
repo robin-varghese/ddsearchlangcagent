@@ -8,7 +8,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 from langchain_core.prompts import MessagesPlaceholder, ChatPromptTemplate
 from langchain.agents import AgentExecutor, Tool, create_openai_functions_agent
-from duckduckgo_search import DuckDuckGoSearchAPIWrapper
+from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
 from langchain_core.utils.function_calling import convert_to_openai_function
 
 load_dotenv()
@@ -26,7 +26,7 @@ llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=GOOGLE_API
 search = DuckDuckGoSearchAPIWrapper()
 
 tools = [
-    Tool.from_function(func=search.run,name="Search", description="useful for when you need to answer questions about current events")
+    Tool.from_function(func=search.run,name="Search", description="useful for when you need to answer questions from the user")
 ]
 
 agent_prompt = ChatPromptTemplate.from_messages([MessagesPlaceholder(variable_name="chat_history"), HumanMessage(content="answer the user question using the available tools")])
