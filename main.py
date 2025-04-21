@@ -1,5 +1,5 @@
 import os, json, logging, time
-from typing import Dict
+from typing import Dict, List,Any
 
 import google.generativeai as genai
 #from dotenv import load_dotenv
@@ -7,9 +7,10 @@ from fastapi import FastAPI, HTTPException
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 from langchain_core.prompts import MessagesPlaceholder, ChatPromptTemplate
-from langchain.agents import AgentExecutor, Tool, create_openai_functions_agent
+from langchain.agents import AgentExecutor, Tool
 from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
-from langchain_core.utils.function_calling import convert_to_openai_function
+#from langchain_core.utils.function_calling import convert_to_openai_function
+from langchain.agents import create_tool_calling_agent
 from pydantic import BaseModel
 
 # Configure logging
@@ -110,9 +111,6 @@ class SearchRequest(BaseModel):
     query: str
     # Optional: Include chat_history if your agent/prompt uses it
     chat_history: List[Dict[str, str]] = [] # Example: [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]
-
-class SearchResponse(BaseModel):
-    result: str
 
 # Helper to format chat history for LangChain if needed
 def format_chat_history(history: List[Dict[str, str]]) -> List:
