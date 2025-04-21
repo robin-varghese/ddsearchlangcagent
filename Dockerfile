@@ -1,24 +1,31 @@
-# Stage 1: Build the dependencies
-FROM python:3.11-slim-buster as builder
+# Use an official Python runtime as a parent image
+# Using python:3.10-slim or python:3.11-slim is often a good balance
+FROM python:3.11-slim
+
+# Set environment variables
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONUNBUFFERED=1 \
+    # Set the PORT environment variable Cloud Run expects (though we also specify in CMD)
+    PORT=8080
+
+# Set the working directory in the container
 WORKDIR /app
+
+# Copy the requirements file into the container at /app
 COPY requirements.txt .
 
-# Create and use a virtual environment in the builder stage
-RUN python3 -m venv .venv && \
-    . .venv/bin/activate && \
-    pip install --no-cache-dir -r requirements.txt
+# Install any needed system dependencies (if any - less common for basic FastAPI)
+# RUN apt-get update && apt-get install -y --no-install-recommends some-package && rm -rf /var/lib/apt/lists/*
 
-# Stage 2: Create the final image
-FROM python:3.11-slim-buster
-ENV PYTHONUNBUFFERED True
-WORKDIR /app
+# Upgrade pip and install Python dependencies from requirements.txt
+# Using --no-cache-dir reduces image size
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the virtual environment
-COPY --from=builder /app/.venv .venv  
+# Copy the rest of your application code into the container at /app
+# Assumes your main.py and any other modules are in the same directory as the Dockerfile
 COPY . .
 
-# Use gunicorn from the copied virtual environment
-CMD exec /app/.venv/bin/gunicorn --bind :$PORT --workers 1 --threads 8 main:app
-
-
-
+# Command to run the application using Uvicorn
+# This command now runs *after* pip install has successfully installed uvicorn
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]

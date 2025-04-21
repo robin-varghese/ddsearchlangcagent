@@ -2,7 +2,7 @@ import os, json, logging, time
 from typing import Dict, List,Any
 
 import google.generativeai as genai
-#from dotenv import load_dotenv
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
@@ -114,7 +114,7 @@ class SearchRequest(BaseModel):
 
 class SearchResponse(BaseModel):  # Define SearchResponse here
     result: str
-    
+
 # Helper to format chat history for LangChain if needed
 def format_chat_history(history: List[Dict[str, str]]) -> List:
     lc_history = []

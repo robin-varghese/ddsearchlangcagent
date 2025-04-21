@@ -1,6 +1,6 @@
 fastapi
 gunicorn
-uvicorn
+uvicorn[standard]>=0.20.0
 langchain
 duckduckgo-search
 python-dotenv
