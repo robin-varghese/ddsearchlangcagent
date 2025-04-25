@@ -1,163 +1,160 @@
-import os, json, logging, time
-from typing import Dict, List,Any
-
-import google.generativeai as genai
-from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+import os
+import sys
+import glob
+import logging
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import HumanMessage
-from langchain_core.prompts import MessagesPlaceholder, ChatPromptTemplate
-from langchain.agents import AgentExecutor, Tool
-from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
-#from langchain_core.utils.function_calling import convert_to_openai_function
-from langchain.agents import create_tool_calling_agent
+from langchain_community.tools import DuckDuckGoSearchRun
+from langchain.agents import AgentExecutor, create_react_agent
+from langchain import hub # Hub for prompt templates
+from langchain_core.messages import HumanMessage, SystemMessage
+from google.generativeai.types.safety_types import HarmBlockThreshold, HarmCategory
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# --- Logging Setup ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.StreamHandler()])
+logger = logging.getLogger(__name__)
 
-import os
-from fastapi import FastAPI
-from google.cloud import secretmanager
+# --- Cleanup Function ---
+def cleanup_previous_files():
+    """
+    Removes files created in previous runs.
+    """
+    logger.info("Cleaning up previous run's files...")
+    try:
+        for filename in glob.glob("*.json") + glob.glob("*.bk"):
+            os.remove(filename)
+        logger.info("Cleanup successful.")
+    except Exception as e:
+        logger.error(f"Error during cleanup: {e}")
 
-# ... other imports ...
 
-app = FastAPI(title="LangChain Agent Search API")
+# --- Configuration ---
+# Ensure the GOOGLE_API_KEY environment variable is set
+if "GOOGLE_API_KEY" not in os.environ:
+    logger.error("GOOGLE_API_KEY environment variable not set.")
+    logger.error("Please set it before running the script:")
+    logger.error("Linux/macOS: export GOOGLE_API_KEY='YOUR_API_KEY'")
+    logger.error("Windows CMD: set GOOGLE_API_KEY=YOUR_API_KEY")
+    logger.error("Windows PowerShell: $env:GOOGLE_API_KEY='YOUR_API_KEY'")
+    sys.exit(1)
+else:
+    logger.info("GOOGLE_API_KEY environment variable found.")
 
-def access_secret_version(secret_id, GOOGLE_CLOUD_PROJECT_NUMBER, version_id="latest"):
-    """Access the secret version."""
-    client = secretmanager.SecretManagerServiceClient()
-    name = f"projects/{GOOGLE_CLOUD_PROJECT_NUMBER}/secrets/{secret_id}/versions/{version_id}"
-    response = client.access_secret_version(request={"name": name})
-    return response.payload.data.decode("UTF-8")
+# Configure safety settings for Gemini (Optional but recommended)
+# Adjust these thresholds as needed (BLOCK_NONE allows most content)
+safety_settings = {
+    HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE, 
+    HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+}
 
-# Get the API key from Secret Manager
+# --- Initialize Components ---
+
+# 1. LLM: Google Gemini
+logger.info("Initializing LLM (Google Gemini)...")
 try:
-    GOOGLE_CLOUD_PROJECT_NUMBER = os.environ.get("GOOGLE_CLOUD_PROJECT_NUMBER")
-except KeyError:
-    raise ValueError("GOOGLE_CLOUD_PROJECT_NUMBER environment variable must be set.")
-
-GOOGLE_API_KEY = access_secret_version("google-api-key", GOOGLE_CLOUD_PROJECT_NUMBER)
-
-if not GOOGLE_API_KEY:
-    raise ValueError("Failed to retrieve GOOGLE_API_KEY from Secret Manager")
-
-# ... Initialize your LangChain agent using google_api_key ...
-
-
-logging.info("Configuring Google Generative AI with the provided API Key")
-#TODO can be removed
-genai.configure(api_key=GOOGLE_API_KEY)
-
-# Initialize the FastAPI app
-logging.info("Initializing FastAPI application")
-
-
-# Initialize the LLM
-logging.info("Initializing ChatGoogleGenerativeAI LLM")
-llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", 
-                                temperature=0,
-                                max_tokens=None,
-                                timeout=None,
-                                max_retries=2,
-                                google_api_key=GOOGLE_API_KEY)
-
-# Initialize the DuckDuckGo search tool
-logging.info("Initializing DuckDuckGo search tool")
-search = DuckDuckGoSearchAPIWrapper()
-
-# Define tools with specific descriptions
-tools = [
-    # Tool class is often preferred now, but from_function still works
-    # from langchain_core.tools import Tool <- Recommended import path
-    Tool.from_function(
-        func=search.run,
-        name="DuckDuckGoSearch", # Specific name
-        description="Useful for searching the web with DuckDuckGo to find current, real-time information about events, topics, or specific facts not found in the LLM's internal knowledge." # Specific description
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-2.0-flash",
+        temperature=0.7, # Controls creativity (0=deterministic, 1=max creativity)
+        convert_system_message_to_human=True, # Helps Gemini understand system prompts
+        safety_settings=safety_settings
     )
-]
-
-# Define the prompt for the tool-calling agent
-# This prompt structure is generally suitable for tool calling agents
-agent_prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", "You are a helpful assistant. Answer the user's questions using the available tools."),
-        MessagesPlaceholder(variable_name="chat_history", optional=True), # Make history optional if not always provided
-        ("human", "{input}"), # User input
-        MessagesPlaceholder(variable_name="agent_scratchpad"), # Place for intermediate agent steps
-    ]
-)
-
-# Create the correct agent for Google tool calling
-try:
-    logging.info("Creating LangChain tool-calling agent")
-    agent = create_tool_calling_agent(llm, tools, agent_prompt)
+    # Quick test to ensure LLM is working (optional)
+    llm.invoke([HumanMessage(content="Hi")])
 except Exception as e:
-    logging.error(f"Failed to create agent: {e}", exc_info=True)
-    raise
+    logger.error(f"Error initializing LLM: {e}")
+    logger.error("Check your API key and internet connection.")
+    sys.exit(1)
 
-# Create the agent executor
-logging.info("Creating LangChain agent executor")
+# 2. Tool: DuckDuckGo Search
+logger.info("Initializing Tools (DuckDuckGo Search)...")
+search_tool = DuckDuckGoSearchRun()
+tools = [search_tool]
+logger.info("Tools Initialized Successfully.")
+
+# 3. Agent Prompt Template
+# We'll use a standard ReAct (Reasoning and Acting) prompt from Langchain Hub
+logger.info("Fetching ReAct prompt template...")
+try:
+    # Pull the prompt template suitable for ReAct agents
+    prompt = hub.pull("hwchase17/react")
+    logger.info("Prompt template fetched successfully.")
+    #logger.info("\n--- Prompt Template ---")
+    # logger.info(prompt.template) # Uncomment to see the prompt structure
+    # logger.info("----------------------\n")
+except Exception as e:
+    logger.error(f"Error fetching prompt from Langchain Hub: {e}")
+    sys.exit(1)
+
+# 4. Create the Agent
+# The agent decides which tool to use based on the input and prompt
+logger.info("Creating the ReAct agent...")
+try:
+    agent = create_react_agent(llm, tools, prompt)
+    logger.info("Agent created successfully.")
+except Exception as e:
+    logger.error(f"Error creating agent: {e}")
+    sys.exit(1)
+
+# 5. Agent Executor
+# This runs the agent's reasoning loop (Thought -> Action -> Observation -> Thought...)
+logger.info("Creating Agent Executor...")
+# verbose=True shows the agent's thought process, which is very helpful!
 agent_executor = AgentExecutor(
     agent=agent,
     tools=tools,
     verbose=True,
-    handle_parsing_errors=True # Good practice
+    handle_parsing_errors=True, # Gracefully handle if LLM output isn't perfect
+    max_iterations=5 # Prevent infinite loops
 )
+logger.info("Agent Executor created successfully.")
+logger.info("\n--- AI Search Agent Ready ---")
 
-# --- API Endpoint Definition ---
 
+# --- FastAPI Setup ---
+app = FastAPI()
+
+# Perform cleanup when the server starts
+#cleanup_previous_files()
+
+# --- Request Model ---
 class SearchRequest(BaseModel):
     query: str
-    # Optional: Include chat_history if your agent/prompt uses it
-    chat_history: List[Dict[str, str]] = [] # Example: [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]
 
-class SearchResponse(BaseModel):  # Define SearchResponse here
-    result: str
+class SearchResponse(BaseModel):
+    response: str
 
-# Helper to format chat history for LangChain if needed
-def format_chat_history(history: List[Dict[str, str]]) -> List:
-    lc_history = []
-    for msg in history:
-        if msg.get("role") == "user":
-            lc_history.append(HumanMessage(content=msg.get("content", "")))
-        elif msg.get("role") == "assistant" or msg.get("role") == "ai":
-             lc_history.append(AIMessage(content=msg.get("content", "")))
-    return lc_history
-
+@app.exception_handler(Exception)
+async def validation_exception_handler(request: Request, err: Exception):
+    base_error_message = f"Failed to execute: {request.method}: {request.url}"
+    logger.error(f"{base_error_message}, error: {err}")
+    return HTTPException(status_code=500, detail=f"{base_error_message}, error: {err}")
 
 @app.post("/search", response_model=SearchResponse)
-async def search_api(request: SearchRequest) -> SearchResponse:
-    logging.info(f"API request received: /search - Query: {request.query}")
-    start_time = time.time()
+async def search(search_request: SearchRequest):
+    """
+    Handles search queries via the AI agent.
+    """
     try:
-        logging.info(f"Invoking LangChain agent_executor asynchronously with query: {request.query}")
+        logger.info(f"Received search request: {search_request.query}")
+        if not search_request.query:
+             raise HTTPException(status_code=400, detail="Query cannot be empty.")
 
-        # Format history if provided
-        formatted_history = format_chat_history(request.chat_history)
-
-        # Use ainvoke and pass input correctly
-        response = await agent_executor.ainvoke({
-            "input": request.query,
-            "chat_history": formatted_history # Pass formatted history
-        })
-
-        output = response.get("output", "No output generated.")
-        end_time = time.time()
-        duration = end_time - start_time
-        logging.info(f"LangChain agent_executor completed. Output: {output}. Time taken: {duration:.4f} seconds")
-        return SearchResponse(result=output)
+        logger.info("Agent thinking...")        
+        response = agent_executor.invoke({"input": search_request.query})
+        logger.info(f"Agent response: {response['output']}")
+        return SearchResponse(response=response['output'])
 
     except Exception as e:
-        end_time = time.time()
-        duration = end_time - start_time
-        logging.error(f"Error processing API request: {e}. Time taken: {duration:.4f} seconds", exc_info=True)
-        # Provide a generic error message to the client
-        raise HTTPException(status_code=500, detail="An internal server error occurred while processing your request.")
+        logger.error(f"Error processing request: {e}")
+        raise HTTPException(status_code=500, detail=f"An error occurred: {e}")
 
-# Add a root endpoint for health check
-@app.get("/")
-def read_root():
-    return {"status": "API is running"}
-
-# To run (save as main.py): uvicorn main:app --reload
+@app.get("/health")
+async def health_check():
+    """
+    Performs a health check.
+    """
+    logger.info("Health check requested.")
+    return {"status": "ok"}

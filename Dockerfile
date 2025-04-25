@@ -25,7 +25,3 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of your application code into the container at /app
 # Assumes your main.py and any other modules are in the same directory as the Dockerfile
 COPY . .
-
-# Command to run the application using Uvicorn
-# This command now runs *after* pip install has successfully installed uvicorn
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
