@@ -16,17 +16,17 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # --- Cleanup Function ---
-def cleanup_previous_files():
-    """
-    Removes files created in previous runs.
-    """
-    logger.info("Cleaning up previous run's files...")
-    try:
-        for filename in glob.glob("*.json") + glob.glob("*.bk"):
-            os.remove(filename)
-        logger.info("Cleanup successful.")
-    except Exception as e:
-        logger.error(f"Error during cleanup: {e}")
+# def cleanup_previous_files():
+#     """
+#     Removes files created in previous runs.
+#     """
+#     logger.info("Cleaning up previous run's files...")
+#     try:
+#         for filename in glob.glob("*.json") + glob.glob("*.bk"):
+#             os.remove(filename)
+#         logger.info("Cleanup successful.")
+#     except Exception as e:
+#         logger.error(f"Error during cleanup: {e}")
 
 
 # --- Configuration ---

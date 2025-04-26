@@ -1,6 +1,9 @@
 fastapi
-gunicorn
-uvicorn[standard]>=0.20.0
+autopep8
+Flask
+Werkzeug==3.0.6
+gunicorn==22.0.0
+uvicorn
 langchain
 duckduckgo-search
 python-dotenv
